@@ -53,10 +53,10 @@ func (s *Server) Start() {
 			// 存储在线用户信息
 			newUser := curUser.NewUser(conn)
 			// 用户上线通知
-			newUser.Online()
+			s.Online(newUser)
 
 			// 监听用户发送的消息
-			go newUser.SendMsg(conn)
+			go s.SendMsg(newUser)
 		}(accept)
 
 		// 监听server
@@ -83,17 +83,36 @@ func (s *Server) ListenServerMsg() {
 	}
 }
 
-//// SendBoardMsg 监听客户端发送的消息
-//func (s *Server) SendBoardMsg(user *curUser.User, conn net.Conn) {
-//
-//	bytes := make([]byte, 4096)
-//	read, err := conn.Read(bytes)
-//	if err != nil {
-//		fmt.Println("消息接收异常：err: ", err)
-//	}
-//	if read == 0 {
-//		user.Offline()
-//		return
-//	}
-//	s.BoardCast(user, string(bytes[:read-1]))
-//}
+// Online 用户上线
+func (s *Server) Online(u *curUser.User) {
+	s.MapLock.Lock()
+	s.OnlineMap[u.Title] = u
+	s.MapLock.Unlock()
+
+	// 发送广播消息
+	go s.BoardCast(u, "已经上线………………")
+}
+
+// Offline 用户下线
+func (s *Server) Offline(u *curUser.User) {
+	s.MapLock.Lock()
+	delete(s.OnlineMap, u.Title)
+	s.MapLock.Unlock()
+
+	// 发送广播消息
+	go s.BoardCast(u, "已下线………………")
+}
+
+// SendMsg 用户发送全局消息
+func (s *Server) SendMsg(u *curUser.User) {
+	bytes := make([]byte, 4096)
+	read, err := u.Conn.Read(bytes)
+	if err != nil {
+		fmt.Println("消息接收异常：err: ", err)
+	}
+	if read == 0 {
+		s.Offline(u)
+		return
+	}
+	s.BoardCast(u, string(bytes[:read-1]))
+}
