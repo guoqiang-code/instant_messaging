@@ -103,7 +103,7 @@ func (s *Server) Offline(u *curUser.User) {
 	go s.BoardCast(u, "已下线………………")
 }
 
-// SendMsg 用户发送全局消息
+// SendMsg 用户发送消息
 func (s *Server) SendMsg(u *curUser.User) {
 	bytes := make([]byte, 4096)
 	read, err := u.Conn.Read(bytes)
@@ -114,5 +114,17 @@ func (s *Server) SendMsg(u *curUser.User) {
 		s.Offline(u)
 		return
 	}
-	s.BoardCast(u, string(bytes[:read-1]))
+	msg := string(bytes[:read])
+	if msg == "search" {
+		fmt.Println("用户查询在线用户列表……………………")
+		s.MapLock.Lock()
+		for _, user := range s.OnlineMap {
+			sendClientMsg := "用户为：title【" + user.Title + "】,addr为：【" + user.Addr + "】的用户在线"
+			user.SendMsgClient(sendClientMsg)
+		}
+		s.MapLock.Unlock()
+		return
+	}
+
+	s.BoardCast(u, msg)
 }
