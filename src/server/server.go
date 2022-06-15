@@ -105,26 +105,36 @@ func (s *Server) Offline(u *curUser.User) {
 
 // SendMsg 用户发送消息
 func (s *Server) SendMsg(u *curUser.User) {
-	bytes := make([]byte, 4096)
-	read, err := u.Conn.Read(bytes)
-	if err != nil {
-		fmt.Println("消息接收异常：err: ", err)
-	}
-	if read == 0 {
-		s.Offline(u)
-		return
-	}
-	msg := string(bytes[:read])
-	if msg == "search" {
-		fmt.Println("用户查询在线用户列表……………………")
-		s.MapLock.Lock()
-		for _, user := range s.OnlineMap {
-			sendClientMsg := "用户为：title【" + user.Title + "】,addr为：【" + user.Addr + "】的用户在线"
-			user.SendMsgClient(sendClientMsg)
+	for {
+		bytes := make([]byte, 4096)
+		read, err := u.Conn.Read(bytes)
+		if err != nil {
+			fmt.Println("消息接收异常：err: ", err)
 		}
-		s.MapLock.Unlock()
-		return
-	}
+		if read == 0 {
+			s.Offline(u)
+			return
+		}
+		msg := string(bytes[:read])
+		if msg == "search" {
+			fmt.Println("用户查询在线用户列表……………………")
+			s.MapLock.Lock()
+			for _, user := range s.OnlineMap {
+				sendClientMsg := "用户为：title【" + user.Title + "】,addr为：【" + user.Addr + "】的用户在线"
+				user.SendMsgClient(sendClientMsg)
+			}
+			s.MapLock.Unlock()
+			return
+		} else if len(msg) > 7 && msg[:6] == "rename" {
+			s.MapLock.Lock()
+			delete(s.OnlineMap, u.Title)
+			u.Title = msg[7:]
+			s.OnlineMap[u.Title] = u
+			s.MapLock.Unlock()
+			u.SendMsgClient("用户名称修改成功……")
+		} else {
+			s.BoardCast(u, msg)
+		}
 
-	s.BoardCast(u, msg)
+	}
 }

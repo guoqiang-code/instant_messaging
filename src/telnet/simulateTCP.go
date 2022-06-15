@@ -14,6 +14,7 @@ func main() {
 		fmt.Println("客户端 dial err：", err)
 		return
 	}
+	listenMsg(conn)
 	//功能一：客户端可以发送单行数据，然后退出
 	reader := bufio.NewReader(os.Stdin) //os.Stdin 代表标准输入【终端】
 	for {
@@ -27,21 +28,23 @@ func main() {
 		line = strings.Trim(line, " \r\n")
 		if line == "exit" {
 			fmt.Println("客户端退出....")
-			break
+			return
 		}
 		//再将读取的发送给服务器
 		_, err = conn.Write([]byte(line))
 		if err != nil {
 			fmt.Println("conn Write err:", err)
 		}
-
-		bytes := make([]byte, 4096)
-		_, err = conn.Read(bytes)
-		if err != nil {
-			fmt.Println("消息读取失败")
-			return
-		}
-		fmt.Println("客户端回应的信息：", string(bytes))
+		listenMsg(conn)
 	}
+}
 
+func listenMsg(conn net.Conn) {
+	bytes := make([]byte, 4096)
+	_, err := conn.Read(bytes)
+	if err != nil {
+		fmt.Println("消息读取失败")
+		return
+	}
+	fmt.Println("客户端回应的信息：", string(bytes))
 }
